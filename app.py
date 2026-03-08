@@ -5,47 +5,84 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
 st.title("CrewPlanner")
-st.caption("Airline Crew Planning, Optimization & Rostering Tool")
+st.caption("Airline Crew Planning, Forecasting & Rostering Tool")
 
-# -----------------------------
-# SIDEBAR INPUTS
-# -----------------------------
+# =====================================================
+# SECTION 1 — USER INPUTS
+# =====================================================
 
-st.sidebar.header("Airline Operations")
+st.sidebar.header("INPUT SECTION")
 
-aircraft = st.sidebar.number_input("Number of Aircraft",1,1000,430)
-flights_per_aircraft = st.sidebar.slider("Flights per Aircraft per Day",1,10,6)
-avg_flight_hours = st.sidebar.slider("Average Flight Hours",1.0,5.0,2.0)
+st.sidebar.subheader("Aircraft Operations")
 
-seats = st.sidebar.number_input("Seats per Aircraft",50,300,180)
-load_factor = st.sidebar.slider("Load Factor",0.5,1.0,0.85)
+aircraft = st.sidebar.number_input(
+"INPUT: Total Aircraft in Fleet",
+1,1000,430)
 
-pilot_max_hours = st.sidebar.slider("Pilot Max Flying Hours (DGCA)",6,12,8)
-reserve_buffer = st.sidebar.slider("Reserve Buffer %",0.05,0.25,0.15)
+flights_per_aircraft = st.sidebar.slider(
+"INPUT: Flights per Aircraft per Day",
+1,10,6)
 
-st.sidebar.header("Existing Crew")
+avg_flight_hours = st.sidebar.slider(
+"INPUT: Average Flight Duration (Hours)",
+1.0,5.0,2.0)
 
-existing_pilots = st.sidebar.number_input("Existing Pilots",100,10000,5000)
-existing_cabin = st.sidebar.number_input("Existing Cabin Crew",100,20000,9000)
+st.sidebar.subheader("Aircraft Capacity")
 
-pilot_training_months = st.sidebar.slider("Pilot Training Months",1,12,5)
+seats = st.sidebar.number_input(
+"INPUT: Seats per Aircraft",
+50,300,180)
 
-# -----------------------------
-# DEMAND FORECAST
-# -----------------------------
+load_factor = st.sidebar.slider(
+"INPUT: Expected Load Factor",
+0.5,1.0,0.85)
+
+st.sidebar.subheader("DGCA Rules")
+
+pilot_max_hours = st.sidebar.slider(
+"INPUT: Max Pilot Flying Hours per Day (DGCA)",
+6,12,8)
+
+reserve_buffer = st.sidebar.slider(
+"INPUT: Reserve Crew Buffer %",
+0.05,0.25,0.15)
+
+st.sidebar.subheader("Existing Workforce")
+
+existing_pilots = st.sidebar.number_input(
+"INPUT: Current Number of Pilots",
+100,10000,5000)
+
+existing_cabin = st.sidebar.number_input(
+"INPUT: Current Cabin Crew",
+100,20000,9000)
+
+pilot_training = st.sidebar.slider(
+"INPUT: Pilot Training Duration (Months)",
+1,12,5)
+
+# =====================================================
+# SECTION 2 — DEMAND FORECAST
+# =====================================================
 
 st.header("1️⃣ Demand Forecast")
 
-months = st.number_input("Historical Months",3,24,12)
+st.write("INPUT: Enter historical passenger demand.")
 
-data = []
+months = st.number_input("Number of Historical Months",3,24,12)
+
+demand_data = []
+
 for i in range(months):
-    value = st.number_input(f"Passengers Month {i+1}",100000,20000000,1000000)
-    data.append(value)
+    value = st.number_input(
+        f"INPUT: Passengers Month {i+1}",
+        100000,20000000,1000000
+    )
+    demand_data.append(value)
 
 df = pd.DataFrame({
-    "month": np.arange(len(data)),
-    "passengers": data
+"month":np.arange(len(demand_data)),
+"passengers":demand_data
 })
 
 X = df["month"].values.reshape(-1,1)
@@ -54,168 +91,211 @@ y = df["passengers"].values
 model = LinearRegression()
 model.fit(X,y)
 
-future_month = len(data)
+future_month = len(demand_data)
 forecast = model.predict([[future_month]])[0]
 
-st.write(f"Forecast Passengers Next Month: **{int(forecast):,}**")
+st.success(f"Forecast Passengers Next Month: {int(forecast):,}")
 
 fig,ax = plt.subplots()
 ax.plot(df["month"],df["passengers"],label="Historical")
 ax.scatter(future_month,forecast,color="red",label="Forecast")
 ax.legend()
-ax.set_xlabel("Month")
-ax.set_ylabel("Passengers")
 st.pyplot(fig)
 
-# -----------------------------
-# FLIGHTS REQUIRED
-# -----------------------------
+# =====================================================
+# SECTION 3 — FLIGHTS REQUIRED
+# =====================================================
 
 st.header("2️⃣ Flights Required")
 
-flights_required = forecast / (seats * load_factor)
-
-st.write("Calculation:")
+st.write("Formula Used:")
 
 st.code("""
-Flights = Forecast Demand / (Aircraft Seats × Load Factor)
+Flights Required =
+Passenger Demand / (Seats × Load Factor)
 """)
 
-st.write(f"Flights required per month: **{int(flights_required)}**")
+flights_required = forecast / (seats * load_factor)
+
+st.write(f"Flights Required per Month: {int(flights_required)}")
 
 daily_flights = flights_required / 30
 
-# -----------------------------
-# FLIGHT HOURS
-# -----------------------------
+st.write(f"Flights Required per Day: {int(daily_flights)}")
+
+# =====================================================
+# SECTION 4 — TOTAL FLIGHT HOURS
+# =====================================================
 
 st.header("3️⃣ Total Flight Hours")
 
+st.write("Formula Used:")
+
+st.code("""
+Total Flight Hours =
+Daily Flights × Average Flight Duration
+""")
+
 total_flight_hours = daily_flights * avg_flight_hours
 
-st.write("Calculation:")
+st.write(f"Total Flight Hours Needed Per Day: {round(total_flight_hours,2)}")
 
-st.code("""
-Total Flight Hours = Daily Flights × Average Flight Time
+# =====================================================
+# SECTION 5 — CREW PER FLIGHT RULE
+# =====================================================
+
+st.header("4️⃣ Crew Requirement per Flight")
+
+st.write("""
+Each commercial flight requires:
+
+• **2 Pilots (Pilot Pair)**  
+• **4 Cabin Crew**  
+• **8 Ground Staff**
 """)
 
-st.write(f"Total Flight Hours Needed per Day: **{round(total_flight_hours,2)} hours**")
+pilots_per_flight = 2
+cabin_per_flight = 4
+ground_per_flight = 8
 
-# -----------------------------
-# CREW REQUIREMENT
-# -----------------------------
+pilot_pair_requirement = daily_flights * pilots_per_flight
+cabin_requirement = daily_flights * cabin_per_flight
+ground_requirement = daily_flights * ground_per_flight
 
-st.header("4️⃣ Required Crew (Before Optimization)")
+# =====================================================
+# SECTION 6 — PILOT DUTY CONSTRAINT
+# =====================================================
 
-pilot_shifts = total_flight_hours / pilot_max_hours
+st.header("5️⃣ DGCA Duty Constraint")
 
-pilots_required = pilot_shifts * (1 + reserve_buffer)
-cabin_required = daily_flights * 4 * (1 + reserve_buffer)
-ground_required = daily_flights * 8 * (1 + reserve_buffer)
-
-st.write("Calculation:")
+st.write("Formula Used:")
 
 st.code("""
-Pilots Needed = Total Flight Hours / Pilot Max Hours
-Cabin Crew = Flights × 4
-Ground Staff = Flights × 8
-Reserve Buffer Added
+Pilot Requirement based on Duty Hours =
+Total Flight Hours / Max Pilot Flying Hours
 """)
 
-crew_df = pd.DataFrame({
-    "Role":["Pilots","Cabin Crew","Ground Staff"],
-    "Required":[int(pilots_required),int(cabin_required),int(ground_required)]
+pilot_hour_requirement = total_flight_hours / pilot_max_hours
+
+st.write(f"Pilot Requirement Based on Duty Hours: {round(pilot_hour_requirement,2)}")
+
+# =====================================================
+# SECTION 7 — FINAL PILOT REQUIREMENT
+# =====================================================
+
+st.header("6️⃣ Final Pilot Requirement")
+
+st.write("""
+Final pilots required must satisfy BOTH:
+
+1. Pilot Pair Requirement  
+2. Duty Hour Requirement
+""")
+
+pilots_needed = max(pilot_pair_requirement, pilot_hour_requirement)
+
+pilots_needed = pilots_needed * (1 + reserve_buffer)
+
+cabin_needed = cabin_requirement * (1 + reserve_buffer)
+ground_needed = ground_requirement * (1 + reserve_buffer)
+
+crew_table = pd.DataFrame({
+"Role":["Pilots","Cabin Crew","Ground Staff"],
+"Required":[int(pilots_needed),int(cabin_needed),int(ground_needed)]
 })
 
-st.table(crew_df)
+st.table(crew_table)
 
-# -----------------------------
-# EXISTING CREW UTILIZATION
-# -----------------------------
+# =====================================================
+# SECTION 8 — EXISTING CREW UTILIZATION
+# =====================================================
 
-st.header("5️⃣ Existing Crew Utilization")
+st.header("7️⃣ Existing Crew Utilization")
+
+st.write("Formula Used:")
+
+st.code("""
+Pilot Utilization =
+Total Flight Hours /
+(Existing Pilots × Max Pilot Hours)
+""")
 
 pilot_utilization = total_flight_hours / (existing_pilots * pilot_max_hours)
 
-st.write(f"Existing Pilots: **{existing_pilots}**")
-
-st.write(f"Pilot Utilization: **{round(pilot_utilization*100,2)}%**")
-
-if existing_pilots >= pilots_required:
-    st.success("Current pilots are sufficient")
-else:
-    st.error("Pilot shortage detected")
-
-# -----------------------------
-# AIRCRAFT PER PILOT
-# -----------------------------
-
-st.header("6️⃣ Aircraft Allocation")
-
-aircraft_per_pilot = aircraft / existing_pilots
-
-st.write(f"Aircraft per Pilot Ratio: **{round(aircraft_per_pilot,3)}**")
-
-st.write("This indicates how many aircraft each pilot supports operationally.")
-
-# -----------------------------
-# HIRING REQUIREMENT
-# -----------------------------
-
-st.header("7️⃣ Hiring Requirement")
-
-pilot_shortage = int(pilots_required - existing_pilots)
-
-if pilot_shortage > 0:
-    st.write(f"Pilots to Hire: **{pilot_shortage}**")
-    st.write(f"Pilot Training Time: **{pilot_training_months} months**")
-else:
-    st.write("No additional pilots required")
-
-# -----------------------------
-# ROSTERING
-# -----------------------------
-
-st.header("8️⃣ Crew Rostering")
-
-shifts = 3
-
-pilot_shift = int(pilots_required / shifts)
-cabin_shift = int(cabin_required / shifts)
-
-roster_df = pd.DataFrame({
-    "Shift":["Morning","Afternoon","Night"],
-    "Pilots":[pilot_shift]*3,
-    "Cabin Crew":[cabin_shift]*3
-})
-
-st.table(roster_df)
-
-# -----------------------------
-# RISK INDICATOR
-# -----------------------------
-
-st.header("9️⃣ Operational Risk Indicator")
+st.write(f"Pilot Utilization: {round(pilot_utilization*100,2)}%")
 
 if pilot_utilization > 0.9:
     st.error("High Delay Risk")
 elif pilot_utilization > 0.8:
-    st.warning("Moderate Operational Risk")
+    st.warning("Moderate Risk")
 else:
     st.success("Operations Stable")
 
-# -----------------------------
-# CONSULTANT INSIGHT
-# -----------------------------
+# =====================================================
+# SECTION 9 — AIRCRAFT PER PILOT
+# =====================================================
 
-st.header("Consultant Recommendation")
+st.header("8️⃣ Aircraft per Pilot Ratio")
+
+aircraft_per_pilot = aircraft / existing_pilots
+
+st.write(f"Aircraft per Pilot: {round(aircraft_per_pilot,3)}")
+
+# =====================================================
+# SECTION 10 — HIRING PLAN
+# =====================================================
+
+st.header("9️⃣ Hiring Requirement")
+
+pilot_shortage = pilots_needed - existing_pilots
+
+if pilot_shortage > 0:
+    st.write(f"Pilots to Hire: {int(pilot_shortage)}")
+    st.write(f"Pilot Training Duration: {pilot_training} months")
+else:
+    st.write("Current pilot workforce sufficient")
+
+# =====================================================
+# SECTION 11 — CREW ROSTERING
+# =====================================================
+
+st.header("🔟 Simple Crew Rostering")
 
 st.write("""
-• Maintain pilot utilization between **70% and 85%**
+Crew divided into 3 operational shifts:
 
-• Maintain **10-15% reserve crew**
+• Morning  
+• Afternoon  
+• Night
+""")
 
-• Start training **4-6 months before expected demand increase**
+shifts = 3
 
-• Avoid utilization above **90%** to reduce operational delays
+pilot_shift = int(pilots_needed / shifts)
+cabin_shift = int(cabin_needed / shifts)
+
+roster = pd.DataFrame({
+"Shift":["Morning","Afternoon","Night"],
+"Pilots":[pilot_shift]*3,
+"Cabin Crew":[cabin_shift]*3
+})
+
+st.table(roster)
+
+# =====================================================
+# SECTION 12 — CONSULTANT INSIGHT
+# =====================================================
+
+st.header("Consultant Insight")
+
+st.write("""
+Recommended operating conditions:
+
+• Maintain pilot utilization between **70%–85%**
+
+• Maintain **10–15% reserve crew buffer**
+
+• Start pilot training **4–6 months before demand increase**
+
+• Avoid utilization above **90%** to reduce delay risk
 """)
